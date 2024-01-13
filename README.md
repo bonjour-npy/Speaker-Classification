@@ -1,5 +1,7 @@
 # Speaker Classification
 
+![image-20240113175506430](https://raw.githubusercontent.com/bonjour-npy/Image-Hosting-Service/main/typora_imagesimage-20240113175506430.png)
+
 ## Overview
 
 Classify the speaker of given features, learn how to use Transformer and how to adjust parameters of transformer.
