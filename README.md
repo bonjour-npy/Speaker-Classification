@@ -12,7 +12,7 @@ The original dataset is [VoxCeleb1](https://www.robots.ox.ac.uk/~vgg/data/voxcel
 
 We randomly select 600 speakers from Voxceleb1, then preprocess the raw waveforms into mel-spectrograms.
 
-![image-20240113163045453](https://raw.githubusercontent.com/bonjour-npy/Image-Hosting-Service/main/typora_imagesimage-20240113163045453.png)
+![Screenshot 2024-01-13 163041](https://raw.githubusercontent.com/bonjour-npy/Image-Hosting-Service/main/typora_imagesScreenshot%202024-01-13%20163041.png)
 
 Args:
 
