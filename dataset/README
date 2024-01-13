@@ -1,0 +1,9 @@
+Use Voxceleb1 as dataset.
+Voxceleb1: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/
+
+The license: https://creativecommons.org/licenses/by/4.0/
+The complete version: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/files/license.txt
+
+Random select 600 speakers from Voxceleb1.
+
+Preprocess audio from waveform to mel-spectrogram.
