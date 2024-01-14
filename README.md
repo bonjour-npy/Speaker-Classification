@@ -10,11 +10,11 @@ Classify the speaker of given features, learn how to use Transformer and how to 
 
 The original dataset is [VoxCeleb1](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
 
-We randomly select 600 speakers from Voxceleb1, then preprocess the raw waveforms into mel-spectrograms.
+We randomly select 600 speakers from [VoxCeleb1](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/), then preprocess the raw waveforms into mel-spectrograms. You can download the preprocessed dataset from [Google Drive](https://drive.google.com/file/d/1gaFy8RaQVUEXo2n0peCBR5gYKCB-mNHc/view?usp=drive_link).
 
 ![Screenshot 2024-01-13 163041](https://raw.githubusercontent.com/bonjour-npy/Image-Hosting-Service/main/typora_imagesScreenshot%202024-01-13%20163041.png)
 
-Args:
+Arguments:
 
 - data_dir: The path to the data directory.
 
@@ -22,13 +22,14 @@ Args:
 
 - segment_len: The length of audio segment for training.
 
-The architecture of dataset directory:
+The architecture of dataset directory is shown below, where `uttr-{random string}.pt` represents PyTorch data file containing `valid mel-spectrogram data`.
 
 ```
 data directory/
 ├── mapping.json
 ├── metadata.json
-└── testdata.json
+├── testdata.json
+└── uttr-{random string}.pt
 ```
 
 ## Related

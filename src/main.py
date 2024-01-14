@@ -20,14 +20,14 @@ class myDataset(Dataset):
         self.data_dir = data_dir
         self.segment_len = segment_len
 
-        # Load the mapping from speaker neme to their corresponding id.
+        # Load the mapping from speaker name to their corresponding id.
         mapping_path = Path(data_dir) / "mapping.json"
         mapping = json.load(mapping_path.open())
         self.speaker2id = mapping["speaker2id"]
 
         # Load metadata of training data.
         metadata_path = Path(data_dir) / "metadata.json"
-        metadata = json.load(open(metadata_path))["speakers"]
+        metadata = json.load(open(metadata_path))["speakers"]  # Select the value of key "speakers".
 
         # Get the total number of speaker.
         self.speaker_num = len(metadata.keys())
@@ -40,11 +40,12 @@ class myDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
+        # Corresponding to self.data.append([utterances["feature_path"], self.speaker2id[speaker]]).
         feat_path, speaker = self.data[index]
-        # Load preprocessed mel-spectrogram.
+        # Load preprocessed mel-spectrogram which is saved as PyTorch pt file.
         mel = torch.load(os.path.join(self.data_dir, feat_path))
 
-        # Segmemt mel-spectrogram into "segment_len" frames.
+        # Segment mel-spectrogram into "segment_len" frames.
         if len(mel) > self.segment_len:
             # Randomly get the starting point of the segment.
             start = random.randint(0, len(mel) - self.segment_len)
@@ -65,8 +66,9 @@ def collate_batch(batch):
     # Process features within a batch.
     """Collate a batch of data."""
     mel, speaker = zip(*batch)
-    # Because we train the model batch by batch, we need to pad the features in the same batch to make their lengths the same.
-    mel = pad_sequence(mel, batch_first=True, padding_value=-20)  # pad log 10^(-20) which is very small value.
+    # Because we train the model batch by batch,
+    # we need to pad the features in the same batch to make their lengths the same.
+    mel = pad_sequence(mel, batch_first=True, padding_value=-20)  # pad with log 10^(-20) which is very small value.
     # mel: (batch size, length, 40)
     return mel, torch.FloatTensor(speaker).long()
 
