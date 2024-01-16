@@ -115,9 +115,6 @@ class Classifier(nn.Module):
         super().__init__()
         # 输入维度是梅尔频谱的特征维度40，将输入维度映射到d_model维度
         self.prenet = nn.Linear(40, d_model)
-        # Transformer encoder
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, dim_feedforward=256, nhead=1)
-        self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=2)
         # Conformer optimization
         self.conformer_layer = ConformerBlock(
             dim=d_model,
@@ -139,18 +136,17 @@ class Classifier(nn.Module):
     def forward(self, mels):
         """
         input args:
-          mels: (batch size, length, 40)
+            mels: (batch size, length, 40)
         return:
-          out: (batch size, n_spks)
+            out: (batch size, n_spks)
         """
         # 输入的梅尔频谱形状是(batch size, length, 40)
         out = self.prenet(mels)  # out: (batch size, length, d_model)
         # encoder layer期望的输入形状是(length, batch size, d_model)，因此需要permute重整形状
         out = out.permute(1, 0, 2)  # out: (length, batch size, d_model)
-        # 使用Transformer
-        out = self.encoder(out)  # out: (length, batch size, d_model)
+
         # 使用Conformer优化
-        # out = self.conformer_layer(out)  # out: (length, batch size, d_model)
+        out = self.conformer_layer(out)  # out: (length, batch size, d_model)
         out = out.permute(1, 0, 2)  # out = out.transpose(0, 1)二者等效，调整out形状为(batch size, length, d_model)
 
         # 使用mean pooling保留频率维度，在时间维度上求平均以整合
@@ -241,6 +237,7 @@ def parse_args():
         "warmup_steps": 1000,
         "save_steps": 10000,
         "total_steps": 70000,
+        "num_epochs": 10,
     }
     return config
 
@@ -254,13 +251,14 @@ def main(
         warmup_steps,
         total_steps,
         save_steps,
+        num_epochs: int = 10,
 ):
     """Main function."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[Info]: Use {device} now!")
 
     train_loader, valid_loader, speaker_num = get_dataloader(data_dir, batch_size, n_workers)
-    train_iterator = iter(train_loader)
+    # train_iterator = iter(train_loader)
     print(f"[Info]: Finish loading data!", flush=True)
 
     model = Classifier(n_spks=speaker_num)
@@ -284,50 +282,48 @@ def main(
     viz = Visdom()
     viz.line([0.], [0.], win="train_loss", opts=dict(title="train_loss"))
 
-    for step in range(total_steps):  # 一个step是一个batch，batch_size是32
-        # Get data
-        try:
-            batch = next(train_iterator)
-        except StopIteration:
-            train_iterator = iter(train_loader)
-            batch = next(train_iterator)
+    step = 0
+    for epoch in range(num_epochs):
+        for batch in train_loader:
+            loss, accuracy = model_fn(batch, model, criterion, device)
+            batch_loss = loss.item()
+            batch_accuracy = accuracy.item()
 
-        loss, accuracy = model_fn(batch, model, criterion, device)
-        batch_loss = loss.item()
-        batch_accuracy = accuracy.item()
+            # Update model
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
 
-        # Update model
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
-        optimizer.zero_grad()
+            # Log
+            viz.line([batch_loss], [step], win="train_loss", update="append")
+            pbar.update()
+            pbar.set_postfix(
+                loss=f"{batch_loss:.2f}",
+                accuracy=f"{batch_accuracy * 100:.2f}%",
+                step=step + 1,
+            )
 
-        # Log
-        viz.line([batch_loss], [step], win="train_loss", update="append")
-        pbar.update()
-        pbar.set_postfix(
-            loss=f"{batch_loss:.2f}",
-            accuracy=f"{batch_accuracy * 100:.2f}%",
-            step=step + 1,
-        )
+            # Do validation
+            if (step + 1) % valid_steps == 0:  # 每valid_steps次训练后，进行一次validation
+                pbar.close()
 
-        # Do validation
-        if (step + 1) % valid_steps == 0:  # 每valid_steps次训练后，进行一次validation
-            pbar.close()
+                valid_accuracy = valid(valid_loader, model, criterion, device)
 
-            valid_accuracy = valid(valid_loader, model, criterion, device)
+                # keep the best model
+                if valid_accuracy > best_accuracy:
+                    best_accuracy = valid_accuracy
+                    best_state_dict = model.state_dict()
 
-            # keep the best model
-            if valid_accuracy > best_accuracy:
-                best_accuracy = valid_accuracy
-                best_state_dict = model.state_dict()
+                pbar = tqdm(total=valid_steps, ncols=0, desc="Train", unit=" step")
 
-            pbar = tqdm(total=valid_steps, ncols=0, desc="Train", unit=" step")
+            # Save the best model so far.
+            if (step + 1) % save_steps == 0 and best_state_dict is not None:
+                torch.save(best_state_dict, save_path)
+                pbar.write(f"Step {step + 1}, best model saved. (accuracy={best_accuracy * 100:.2f}%)")
 
-        # Save the best model so far.
-        if (step + 1) % save_steps == 0 and best_state_dict is not None:
-            torch.save(best_state_dict, save_path)
-            pbar.write(f"Step {step + 1}, best model saved. (accuracy={best_accuracy * 100:.2f}%)")
+            # 更新训练阶段的全局参数step
+            step += 1
 
     pbar.close()
 
